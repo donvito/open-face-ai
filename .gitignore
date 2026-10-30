@@ -1,0 +1,10 @@
+.venv/
+work/
+models/
+__pycache__/
+*.pyc
+.DS_Store
+.devin/config.local.json
+# people enrolled through the app (personal photos)
+photos/people/*/upload_*
+photos/people/*/name.txt

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Face AI Studio</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<aside class="sidebar">
+  <div class="brand">
+    <div class="logo">OF</div>
+    <div><div class="brand-name">Open Face AI</div><div class="brand-sub">commercial-friendly models</div></div>
+  </div>
+  <nav id="nav">
+    <button data-tab="analyze" class="active"><span>01</span>Face analysis</button>
+    <button data-tab="verify"><span>02</span>Verify 1:1</button>
+    <button data-tab="identify"><span>03</span>Identify 1:N</button>
+    <button data-tab="liveness"><span>04</span>Liveness</button>
+    <button data-tab="cluster"><span>05</span>Album clustering</button>
+    <button data-tab="privacy"><span>06</span>Video privacy</button>
+    <button data-tab="person"><span>07</span>Person tracking</button>
+    <button data-tab="credits"><span>08</span>Credits &amp; licenses</button>
+  </nav>
+  <div class="runtime" id="runtime">Loading models...</div>
+  <div class="foot" id="foot">Models: MIT / Apache 2.0 / CC BY 4.0. Age and gender: &ldquo;FairFace&rdquo; by K&auml;rkk&auml;inen &amp; Joo, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a>. Photos: NASA / Wikimedia Commons, public domain. <a href="#credits" id="foot-credits">Credits &amp; licenses</a></div>
+</aside>
+
+<main>
+  <!-- Analyze -->
+  <section id="tab-analyze" class="tab active">
+    <header><h1>Face analysis</h1><p>Detection (YuNet), 5 keypoints, a 478-point 3D face mesh with head pose and expressions (MediaPipe), age group and gender (FairFace), and a 512-d AuraFace embedding for every face in the photo.</p></header>
+    <div class="picker" data-picker="analyze"></div>
+    <div class="toolbar">
+      <label>Model <select id="an-model"><option value="full">full (mesh, attributes, liveness)</option><option value="fast">fast (detection + embedding)</option></select></label>
+      <label class="chk"><input type="checkbox" data-layer="box" checked> boxes</label>
+      <label class="chk"><input type="checkbox" data-layer="kps" checked> 5 keypoints</label>
+      <label class="chk"><input type="checkbox" data-layer="contours" checked> mesh contours</label>
+      <label class="chk"><input type="checkbox" data-layer="mesh"> 478-pt mesh</label>
+      <label class="chk"><input type="checkbox" data-layer="label" checked> labels</label>
+      <span class="stat" id="an-stat"></span>
+    </div>
+    <div class="split">
+      <div class="stage"><canvas id="an-canvas"></canvas><div class="empty">Pick a sample photo or drop your own</div></div>
+      <div class="cards" id="an-cards"></div>
+    </div>
+  </section>
+
+  <!-- Verify -->
+  <section id="tab-verify" class="tab">
+    <header><h1>Face verification (1:1)</h1><p>Are these two photos the same person? Each face is aligned to 112x112, embedded with AuraFace (Apache 2.0, ArcFace-style), and compared with cosine similarity.</p></header>
+    <div class="quick"><span>Try:</span>
+      <button data-pair="same">Same person, different years</button>
+      <button data-pair="hard">Same person, hard angle</button>
+      <button data-pair="diff">Different people</button>
+    </div>
+    <div class="verify-slots">
+      <div class="slot active" data-slot="a"><div class="slot-tag">A</div><img alt=""><div class="slot-hint">Click a photo below</div></div>
+      <div class="verdict" id="vf-verdict"><div class="gauge"><div class="gauge-fill"></div><div class="gauge-mark"></div></div><div class="vf-score">--</div><div class="vf-label">pick two faces</div>
+        <label class="slider">threshold <input type="range" id="vf-th" min="0.1" max="0.7" step="0.01" value="0.30"><b id="vf-thv">0.30</b></label>
+      </div>
+      <div class="slot" data-slot="b"><div class="slot-tag">B</div><img alt=""><div class="slot-hint">Click a photo below</div></div>
+    </div>
+    <div class="picker" data-picker="verify"></div>
+  </section>
+
+  <!-- Identify -->
+  <section id="tab-identify" class="tab">
+    <header><h1>Face identification (1:N)</h1><p>Enroll people into a gallery, then find them in any photo. Every face is searched against all enrolled embeddings.</p></header>
+    <div class="gallery-bar">
+      <div class="gallery" id="id-gallery"></div>
+      <form id="enroll" class="enroll">
+        <div class="enroll-title">Enroll a new person</div>
+        <input name="name" placeholder="Name" required>
+        <input name="files" type="file" accept="image/*" multiple required>
+        <button type="submit">Enroll</button>
+      </form>
+    </div>
+    <div class="toolbar">
+      <label class="slider">match threshold <input type="range" id="id-th" min="0.1" max="0.7" step="0.01" value="0.30"><b id="id-thv">0.30</b></label>
+      <span class="stat" id="id-stat"></span>
+    </div>
+    <div class="split">
+      <div class="stage"><canvas id="id-canvas"></canvas><div class="empty">Pick a group photo to search</div></div>
+      <div class="cards" id="id-cards"></div>
+    </div>
+    <div class="picker" data-picker="identify" data-default="groups"></div>
+  </section>
+
+  <!-- Liveness -->
+  <section id="tab-liveness" class="tab">
+    <header><h1>Liveness (anti-spoofing)</h1><p>Silent-Face MiniFASNet (Apache 2.0, two-model ensemble) scores each face as live or presentation attack (printed photo, screen replay). Faces that fail would be skipped for recognition in a production flow. Trained on camera captures, so treat scores on web photos as indicative.</p></header>
+    <div class="picker" data-picker="liveness"></div>
+    <div class="toolbar">
+      <label class="slider">live threshold <input type="range" id="lv-th" min="0.1" max="0.99" step="0.01" value="0.95"><b id="lv-thv">0.95</b></label>
+      <label class="chk"><input type="checkbox" id="lv-spoof"> simulate screen replay (moire + glare recapture)</label>
+      <span class="stat" id="lv-stat"></span>
+    </div>
+    <div class="split">
+      <div class="stage"><canvas id="lv-canvas"></canvas><div class="empty">Pick a photo</div></div>
+      <div class="cards" id="lv-cards"></div>
+    </div>
+  </section>
+
+  <!-- Cluster -->
+  <section id="tab-cluster" class="tab">
+    <header><h1>Album clustering</h1><p>No labels needed: every face across the sample album is embedded, then grouped by similarity. This is how photo apps build "People" albums.</p></header>
+    <div class="toolbar">
+      <button class="primary" id="cl-run">Cluster the album</button>
+      <label class="slider">similarity cut <input type="range" id="cl-th" min="0.15" max="0.6" step="0.01" value="0.30"><b id="cl-thv">0.30</b></label>
+      <span class="stat" id="cl-stat"></span>
+    </div>
+    <div id="cl-out" class="clusters"></div>
+  </section>
+
+  <!-- Privacy -->
+  <section id="tab-privacy" class="tab">
+    <header><h1>Video privacy</h1><p>Faces are detected in every frame (YuNet), linked into tracks, recognised per track (AuraFace, top-3 vote), then blurred or mosaicked. Blur everyone, only selected people, or everyone except selected people.</p></header>
+    <div class="video-pick" data-videos="privacy"></div>
+    <div class="form-row">
+      <div class="seg" id="pf-mode">
+        <button data-v="all" class="on">Blur everyone</button>
+        <button data-v="blur_only">Blur only selected</button>
+        <button data-v="exempt">Keep selected visible</button>
+      </div>
+      <div class="seg" id="pf-method">
+        <button data-v="gaussian" class="on">Gaussian</button>
+        <button data-v="mosaic">Mosaic</button>
+      </div>
+    </div>
+    <div class="people-pick" id="pf-people"></div>
+    <div class="toolbar"><button class="primary" id="pf-run">Process video</button><div class="progress" id="pf-prog"><div></div><span></span></div></div>
+    <div class="video-compare" id="pf-out"></div>
+  </section>
+
+  <!-- Person -->
+  <section id="tab-person" class="tab">
+    <header><h1>Person tracking</h1><p>YOLOX finds bodies and YuNet finds faces in each frame. People are matched by face (AuraFace), then by body appearance (colour signature learned from face-confirmed frames) or track continuity when the face is not visible.</p></header>
+    <div class="video-pick" data-videos="person"></div>
+    <div class="people-pick" id="pa-people"></div>
+    <div class="toolbar">
+      <label>analysis rate <select id="pa-fps"><option value="5">5 fps</option><option value="10" selected>10 fps</option><option value="30">every frame</option></select></label>
+      <button class="primary" id="pa-run">Track people</button><div class="progress" id="pa-prog"><div></div><span></span></div>
+    </div>
+    <div id="pa-out"></div>
+  </section>
+
+  <!-- Credits -->
+  <section id="tab-credits" class="tab">
+    <header><h1>Credits &amp; licenses</h1><p>Third-party models, libraries and media used by this app, with their authors and licenses. Full text: <a href="/notices" target="_blank">THIRD_PARTY_NOTICES.md</a>.</p></header>
+    <div id="cr-out" class="credits"><div class="empty">Loading...</div></div>
+  </section>
+</main>
+
+<div id="drop-overlay">Drop image to analyze</div>
+<div id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
